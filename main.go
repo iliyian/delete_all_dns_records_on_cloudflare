@@ -4,9 +4,10 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"os"
 	"log"
 	"net/http"
+	"os"
+	"time"
 
 	"github.com/buger/jsonparser"
 )
@@ -102,8 +103,10 @@ func getIds(records []byte) []string {
 	return ids
 }
 
-func deleteRecords(ids []string) {
-	for i, id := range ids {
+var deletedCount int
+
+func delete(i, len int, id string) {
+	go func() {
 		req, err := http.NewRequest("DELETE", fmt.Sprintf(deleteUrl, zone_identifier, id), nil)
 		checkErr(err)
 		req.Header.Set("X-Auth-Key", X_Auth_Key)
@@ -113,9 +116,21 @@ func deleteRecords(ids []string) {
 		checkErr(err)
 
 		if resp.StatusCode != 200 {
-			log.Fatal("Delete id", id, "failed.")
+			log.Fatal("Delete id: ", id, " failed.")
 		}
-		log.Println("Deleted record id", id, "successfully.", fmt.Sprintf("%d/%d", i, len(ids)))
+		deletedCount ++
+		log.Println("Deleted record id", id, "successfully.", fmt.Sprintf("%d/%d", deletedCount, len))
+	}()
+}
+
+func deleteRecords(ids []string) {
+	deletedCount = 0
+	for i, id := range ids {
+		delete(i, len(ids), id)
+		// time.Sleep(time.Microsecond * 20)
+	}
+	for deletedCount != len(ids) {
+		time.Sleep(time.Second)
 	}
 }
 
